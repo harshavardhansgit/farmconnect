@@ -8,12 +8,15 @@ const app = express();
 const { supabase } = require("./supabaseClient");
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+
 
 // Middleware
 app.use(cors());  //Allows frontend to access backend.
 app.use(express.json()); //Allows backend to read JSON data sent by frontend (e.g., product info).
 app.use("/auth", authRoutes);
 app.use("/products", productRoutes) 
+app.use("/orders", orderRoutes);
 // Routes
 app.get("/", (req, res) => {
     res.send("FarmConnect Backend is Running!");
