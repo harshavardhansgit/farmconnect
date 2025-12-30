@@ -7,12 +7,15 @@ const upload = multer({ storage: multer.memoryStorage() }); //directly uploads t
 
 
 // CREATE PRODUCT (Farmer Only)
-router.post("/", auth, async (req, res) => {
-  const { title, description, price, stock, category, unit, image_url} = req.body;
-
+router.post("/", auth, upload.single("image"), async (req, res) => {
+  const { title, description, price, stock, category, unit } = req.body;
   const farmerId = req.user.id;
 
-  // Verify the farmer's role
+  // 🔍 Debug (keep for now)
+  console.log("BODY:", req.body);
+  console.log("FILE:", req.file);
+
+  // role check
   const { data: userDetails } = await supabase
     .from("users")
     .select("role")
@@ -21,6 +24,29 @@ router.post("/", auth, async (req, res) => {
 
   if (!userDetails || userDetails.role !== "farmer") {
     return res.status(403).json({ error: "Only farmers can add products" });
+  }
+
+  let image_url = null;
+
+  // upload image to Supabase if present
+  if (req.file) {
+    const fileName = `${Date.now()}-${req.file.originalname}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("product-images")
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+      });
+
+    if (uploadError) {
+      return res.status(400).json({ error: uploadError.message });
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("product-images")
+      .getPublicUrl(fileName);
+
+    image_url = urlData.publicUrl;
   }
 
   const { data, error } = await supabase.from("products").insert([
@@ -36,16 +62,17 @@ router.post("/", auth, async (req, res) => {
     },
   ]);
 
- if (error) {
-  console.log("Supabase Insert Error:", error);
-  return res.status(400).json({ error });
-}
+  if (error) {
+    console.log("Supabase Insert Error:", error);
+    return res.status(400).json({ error });
+  }
 
-return res.json({
-  message: "Product added successfully!",
-  product: data ? data[0] : null,
+  res.json({
+    message: "Product added successfully!",
+    product: data?.[0],
+  });
 });
-});
+
 
 // GET ALL PRODUCTS
 router.get("/", async (req, res) => {
